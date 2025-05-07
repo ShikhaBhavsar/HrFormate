@@ -76,27 +76,35 @@ def process_dataframe(df, mapping, order=None):
     if order:
         new_df = new_df[[col for col in order if col in new_df.columns]]
     return new_df
+   
+    # Optional: sort by Application Date if it exists
+    if 'Application Date' in new_df.columns:
+        new_df = new_df.sort_values(by='Application Date', ascending=True)
+
+    return new_df
+
 
 # Process uploaded file
-def process_file(file, format_choice):
+def process_file(file, format_choice,sort=False):
     mapping = FRESHER_MAPPING if format_choice == 'Fresher' else EXPERIENCED_MAPPING
     order = FRESHER_ORDER if format_choice == 'Fresher' else None
     df = load_file(file)  # Using cached load_file to avoid multiple reads
     if df is not None:
-        return process_dataframe(df, mapping, order)
+        return process_dataframe(df, mapping, order, sort)
     return None
 
 # --- Streamlit UI ---
 st.title("Candidate File Formatter")
 
 format_choice = st.radio("Select Candidate Format:", ["Experienced", "Fresher"])
+sort_checkbox = st.checkbox("Sort by Application Date (if available)")
 uploaded_files = st.file_uploader("Upload .csv, .xlsx, or .zip file(s)", type=["csv", "xlsx", "zip"], accept_multiple_files=True)
 
 if uploaded_files:
     output_zip = io.BytesIO()
     with zipfile.ZipFile(output_zip, 'w') as zf:
         for file in uploaded_files:
-            result = process_file(file, format_choice)
+            result = process_file(file, format_choice, sort_checkbox)
             if isinstance(result, list):  # ZIP inside
                 for name, df in result:
                     csv_bytes = df.to_csv(index=False).encode('utf-8')
