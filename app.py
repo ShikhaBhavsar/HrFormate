@@ -53,7 +53,8 @@ def convert_to_excel_date(date_str):
         date = datetime(year, month, day)
         excel_date = (date - datetime(1899, 12, 30)).days  # Convert to Excel numeric format
         return excel_date
-    except:
+    except Exception as e:
+        print(f"Error converting date: {e}")
         return None  # Return None if the conversion fails
 
 # Utility: Convert Excel Date to MM/DD/YYYY format
