@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import zipfile
 import io
-from datetime import datetime
 
 # Define column mappings
 EXPERIENCED_MAPPING = {
@@ -44,18 +43,20 @@ FRESHER_ORDER = [
     'Experience', 'Status', 'Comments'
 ]
 
-# Utility: Convert string date in 'DD/MM/YYYY HH:MM AM/PM' format to datetime
-def convert_to_date(date_str):
+# Utility: Convert Application Date (DD/MM/YYYY HH:MM AM/PM) into comparable date string (YYYY/MM/DD)
+def convert_to_comparable_date(date_str):
     try:
-        date = datetime.strptime(date_str.split()[0], "%d/%m/%Y")
-        return date
+        date_parts = date_str.split()[0].split('/')  # Extract 'DD/MM/YYYY'
+        date_str_comparable = f"{date_parts[2]}/{date_parts[1]}/{date_parts[0]}"  # YYYY/MM/DD format
+        return date_str_comparable
     except:
         return None  # Return None if the conversion fails
 
-# Convert datetime to mm/dd/yyyy format
-def date_to_string(date):
+# Convert comparable date string (YYYY/MM/DD) back to MM/DD/YYYY format
+def comparable_to_display_date(comparable_date):
     try:
-        return date.strftime('%m/%d/%Y') if date else ''
+        date_parts = comparable_date.split('/')
+        return f"{date_parts[1]}/{date_parts[2]}/{date_parts[0]}"  # MM/DD/YYYY format
     except:
         return ''
 
@@ -66,21 +67,21 @@ def process_dataframe(df, mapping, order=None):
     # Map the columns according to the provided mapping
     for old, new in mapping.items():
         if old in df.columns:
-            new_df[new] = df[old].apply(convert_to_date) if 'Date' in new else df[old]
+            new_df[new] = df[old].apply(convert_to_comparable_date) if 'Date' in new else df[old]
         else:
             new_df[new] = ''
     
     # Sort by Application Date (oldest to newest)
     if 'Application Date' in new_df.columns:
-        # Convert Application Date to datetime and sort
-        new_df['Application Date'] = pd.to_datetime(new_df['Application Date'], errors='coerce')
+        # Convert Application Date to comparable date format (YYYY/MM/DD) and sort
+        new_df['Application Date'] = new_df['Application Date'].apply(lambda x: convert_to_comparable_date(x) if x else '')
         new_df = new_df.sort_values(by='Application Date', ascending=True, na_position='last')
     
-    # Convert dates to mm/dd/yyyy format before returning
+    # Convert dates back to MM/DD/YYYY format before returning
     if 'Application Date' in new_df.columns:
-        new_df['Application Date'] = new_df['Application Date'].apply(date_to_string)
+        new_df['Application Date'] = new_df['Application Date'].apply(comparable_to_display_date)
     if 'Updation Date' in new_df.columns:
-        new_df['Updation Date'] = new_df['Updation Date'].apply(date_to_string)
+        new_df['Updation Date'] = new_df['Updation Date'].apply(comparable_to_display_date)
     
     if order:
         new_df = new_df[[col for col in order if col in new_df.columns]]
