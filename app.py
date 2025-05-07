@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import zipfile
 import io
+from datetime import datetime
 
 # Define column mappings
 EXPERIENCED_MAPPING = {
@@ -43,22 +44,24 @@ FRESHER_ORDER = [
     'Experience', 'Status', 'Comments'
 ]
 
-# Utility: Convert Application Date (DD/MM/YYYY HH:MM AM/PM) into comparable date string (YYYY/MM/DD)
-def convert_to_comparable_date(date_str):
+# Utility: Convert Application Date (DD/MM/YYYY HH:MM AM/PM) into Excel Numeric Format
+def convert_to_excel_date(date_str):
     try:
-        date_parts = date_str.split()[0].split('/')  # Extract 'DD/MM/YYYY'
-        date_str_comparable = f"{date_parts[2]}/{date_parts[1]}/{date_parts[0]}"  # YYYY/MM/DD format
-        return date_str_comparable
+        # Extract the 'DD/MM/YYYY' part
+        date_part = date_str.split()[0]
+        day, month, year = map(int, date_part.split('/'))
+        date = datetime(year, month, day)
+        excel_date = (date - datetime(1899, 12, 30)).days  # Convert to Excel numeric format
+        return excel_date
     except:
         return None  # Return None if the conversion fails
 
-# Convert comparable date string (YYYY/MM/DD) back to MM/DD/YYYY format
-def comparable_to_display_date(comparable_date):
-    try:
-        date_parts = comparable_date.split('/')
-        return f"{date_parts[1]}/{date_parts[2]}/{date_parts[0]}"  # MM/DD/YYYY format
-    except:
-        return ''
+# Utility: Convert Excel Date to MM/DD/YYYY format
+def excel_to_display_date(excel_date):
+    if excel_date is not None:
+        date = datetime(1899, 12, 30) + pd.to_timedelta(excel_date, unit='D')
+        return date.strftime('%m/%d/%Y')  # Return as MM/DD/YYYY
+    return ''
 
 # Process a single dataframe
 def process_dataframe(df, mapping, order=None):
@@ -67,21 +70,20 @@ def process_dataframe(df, mapping, order=None):
     # Map the columns according to the provided mapping
     for old, new in mapping.items():
         if old in df.columns:
-            new_df[new] = df[old].apply(convert_to_comparable_date) if 'Date' in new else df[old]
+            new_df[new] = df[old].apply(convert_to_excel_date) if 'Date' in new else df[old]
         else:
             new_df[new] = ''
     
     # Sort by Application Date (oldest to newest)
     if 'Application Date' in new_df.columns:
-        # Convert Application Date to comparable date format (YYYY/MM/DD) and sort
-        new_df['Application Date'] = new_df['Application Date'].apply(lambda x: convert_to_comparable_date(x) if x else '')
+        new_df['Application Date'] = new_df['Application Date'].apply(lambda x: convert_to_excel_date(x) if x else None)
         new_df = new_df.sort_values(by='Application Date', ascending=True, na_position='last')
     
     # Convert dates back to MM/DD/YYYY format before returning
     if 'Application Date' in new_df.columns:
-        new_df['Application Date'] = new_df['Application Date'].apply(comparable_to_display_date)
+        new_df['Application Date'] = new_df['Application Date'].apply(excel_to_display_date)
     if 'Updation Date' in new_df.columns:
-        new_df['Updation Date'] = new_df['Updation Date'].apply(comparable_to_display_date)
+        new_df['Updation Date'] = new_df['Updation Date'].apply(excel_to_display_date)
     
     if order:
         new_df = new_df[[col for col in order if col in new_df.columns]]
