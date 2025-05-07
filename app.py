@@ -44,47 +44,43 @@ FRESHER_ORDER = [
     'Experience', 'Status', 'Comments'
 ]
 
-# Utility: Convert date string to Excel numeric date
-def format_date(date_str):
+# Utility: Convert string date in 'DD/MM/YYYY HH:MM AM/PM' format to datetime
+def convert_to_date(date_str):
     try:
-        day, month, year = map(int, date_str.split()[0].split('/'))
-        date = datetime(year, month, day)
-        excel_date = (date - datetime(1899, 12, 30)).days  # Convert to Excel date
-        return excel_date
+        date = datetime.strptime(date_str.split()[0], "%d/%m/%Y")
+        return date
     except:
-        return None  # If date parsing fails, return None
+        return None  # Return None if the conversion fails
 
-# Convert Excel numeric date to mm/dd/yyyy
-def excel_date_to_string(excel_date):
+# Convert datetime to mm/dd/yyyy format
+def date_to_string(date):
     try:
-        if pd.isna(excel_date):
-            return ''
-        else:
-            date = datetime(1899, 12, 30) + pd.to_timedelta(excel_date, 'D')
-            return date.strftime('%m/%d/%Y')
+        return date.strftime('%m/%d/%Y') if date else ''
     except:
         return ''
 
 # Process a single dataframe
 def process_dataframe(df, mapping, order=None):
     new_df = pd.DataFrame()
+    
+    # Map the columns according to the provided mapping
     for old, new in mapping.items():
         if old in df.columns:
-            new_df[new] = df[old].apply(format_date) if 'Date' in new else df[old]
+            new_df[new] = df[old].apply(convert_to_date) if 'Date' in new else df[old]
         else:
             new_df[new] = ''
     
     # Sort by Application Date (oldest to newest)
     if 'Application Date' in new_df.columns:
-        # Ensure conversion to numeric and sort by date
-        new_df['Application Date'] = pd.to_numeric(new_df['Application Date'], errors='coerce')
+        # Convert Application Date to datetime and sort
+        new_df['Application Date'] = pd.to_datetime(new_df['Application Date'], errors='coerce')
         new_df = new_df.sort_values(by='Application Date', ascending=True, na_position='last')
     
-    # Convert dates to mm/dd/yyyy before returning
+    # Convert dates to mm/dd/yyyy format before returning
     if 'Application Date' in new_df.columns:
-        new_df['Application Date'] = new_df['Application Date'].apply(excel_date_to_string)
+        new_df['Application Date'] = new_df['Application Date'].apply(date_to_string)
     if 'Updation Date' in new_df.columns:
-        new_df['Updation Date'] = new_df['Updation Date'].apply(excel_date_to_string)
+        new_df['Updation Date'] = new_df['Updation Date'].apply(date_to_string)
     
     if order:
         new_df = new_df[[col for col in order if col in new_df.columns]]
