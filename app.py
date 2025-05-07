@@ -4,7 +4,7 @@ import zipfile
 import io
 from datetime import datetime
 
-# Define column mappings
+# Column mappings
 EXPERIENCED_MAPPING = {
     'Tags': 'Application Date',
     'CREATED_DATE': 'Updation Date',
@@ -44,7 +44,7 @@ FRESHER_ORDER = [
     'Experience', 'Status', 'Comments'
 ]
 
-# Convert string date to Excel-like numeric date (fallback for legacy)
+# Convert date string to Excel numeric date format
 def format_date(date_str):
     try:
         day, month, year = map(int, date_str.split()[0].split('/'))
@@ -54,27 +54,27 @@ def format_date(date_str):
     except:
         return date_str
 
-# Process and format a single dataframe
+# Process a single dataframe
 def process_dataframe(df, mapping, order=None):
     new_df = pd.DataFrame()
     for old, new in mapping.items():
         if old in df.columns:
-            new_df[new] = df[old].apply(format_date) if 'Date' in new else df[old]
+            new_df[new] = df[old].apply(format_date) if 'Application Date' in new else df[old]
         else:
             new_df[new] = ''
+    
+    # Sort by Application Date (after conversion)
+    if 'Application Date' in new_df.columns:
+        new_df['Application Date'] = pd.to_numeric(new_df['Application Date'], errors='coerce')
+        new_df = new_df.sort_values(by='Application Date', ascending=False)
+    
+    # Apply order
     if order:
         new_df = new_df[[col for col in order if col in new_df.columns]]
     
-    # Sort by 'Application Date' if it exists
-    if 'Application Date' in new_df.columns:
-        try:
-            new_df['Application Date'] = pd.to_datetime(new_df['Application Date'], errors='coerce')
-            new_df = new_df.sort_values(by='Application Date')
-        except Exception as e:
-            pass
     return new_df
 
-# Handle file input (csv, xlsx, or inside a zip)
+# Process uploaded file
 def process_file(file, format_choice):
     mapping = FRESHER_MAPPING if format_choice == 'Fresher' else EXPERIENCED_MAPPING
     order = FRESHER_ORDER if format_choice == 'Fresher' else None
@@ -110,7 +110,7 @@ if uploaded_files:
     with zipfile.ZipFile(output_zip, 'w') as zf:
         for file in uploaded_files:
             result = process_file(file, format_choice)
-            if isinstance(result, list):  # ZIP with multiple files
+            if isinstance(result, list):  # ZIP inside
                 for name, df in result:
                     csv_bytes = df.to_csv(index=False).encode('utf-8')
                     zf.writestr(f"processed_{name.replace(' ', '_')}.csv", csv_bytes)
@@ -118,5 +118,5 @@ if uploaded_files:
                 csv_bytes = result.to_csv(index=False).encode('utf-8')
                 zf.writestr(f"processed_{file.name.replace(' ', '_')}.csv", csv_bytes)
 
-    st.success("Files processed and sorted by Application Date successfully.")
+    st.success("Files processed successfully.")
     st.download_button("Download Processed ZIP", data=output_zip.getvalue(), file_name="processed_files.zip", mime="application/zip")
